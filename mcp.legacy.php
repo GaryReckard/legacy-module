@@ -68,39 +68,128 @@ class Legacy_mcp {
 			"View shortcode candiates",
 			"Import tags from string to tagger field",
 		);
-		return $this->EE->load->view('main-menu.php', $vars, TRUE);
+		return $this->EE->load->view('index.php', $vars, TRUE);
 	}
 
-	public function showShortcode() {
+	public function showShortcodeOptions() {
 		
 		$this->EE->load->library('table');
 		
-		$this->EE->view->cp_page_title = 'Shortcode';
+		$this->EE->view->cp_page_title = lang('show_shortcode_options');
 		
-		//figure out how to display breadcrumbs
 		$this->EE->cp->set_breadcrumb($this->_base_url, "Legacy");
+		
+		$type = null;
+		$title = null;
+		$matches = null;
+		$tesxt = null;
+		$url = null;
+		$pattern = null;
+		$starts_with = null;
+		$vars['candidates'] = array();
 
 		//query db for shortcode candidates: entry_id, blog or page type, title with link
 		$query_string = "SELECT * FROM exp_channel_data, exp_channel_titles WHERE exp_channel_data.entry_id = exp_channel_titles.entry_id";
 		$query = $this->EE->db->query($query_string);
 		
-		//$this->EE->db->select('entry_id, field_id_1, field_id_13');
-		//$query = $this->EE->db->get('exp_channel_data');		
-		$vars['entries'] = $query->result_array();
+		$entries = $query->result_array();
+		
+		foreach ($entries as $entry) {
+			
+			//is it a blog or page?  if neither then disregard
+			if ($entry['channel_id'] == 1) {
+				$type = "page";
+				$text = $entry['field_id_1'];
+			} else if ($entry['channel_id'] == 3) {
+				$type = "blog";
+				$text = $entry['field_id_13'];
+				$url = "/index.php/blog/entry/".$entry['url_title'];
+			} else continue;
+			
+			//look for []'s in body
+			$pattern = '/\[(.*)\]/';
+			preg_match($pattern, $text, $matches);
+			
+			//if we have an opening '[' add to candidates
+			if ($matches != NULL) {
+				$str_arr = explode(' ',trim($matches[0]));
+				$starts_with = $str_arr[0];		
+				$arr =  array('entry_id'=>$entry['entry_id'], 'type'=>$type, 'starts_with'=>$starts_with, 'title'=>$entry['title'], 'url'=>$url);
+				array_push($vars['candidates'], $arr);
+			}				
+		}	
 
-		return $this->EE->load->view('shortcode.php', $vars, TRUE);
+		return $this->EE->load->view('shortcode-view.php', $vars, TRUE);
 	}
 
-	public function populateTags() {
-				
-		$this->EE->view->cp_page_title = 'Populate Tags';
+	public function redirectBlogs() {
+		
+		$this->EE->view->cp_page_title = '301 Redirect Blogs';
+		$this->EE->cp->set_breadcrumb($this->_base_url, "Legacy");
+		
+		$blog_channel_id = 3;
+		$blog_legacy_url = 'field_id_17';
+		$blog_path = 'blog/entry/';
+		$vars['inserted_blog_redirects'] = array();
+		
+		//get url-title and legacy-url from all blogs
+		$query_string = "SELECT $blog_legacy_url as legacy_url, url_title, ct.channel_id FROM exp_channel_data cd, exp_channel_titles ct
+			WHERE cd.entry_id = ct.entry_id and ct.channel_id = 3";
+		//die($query_string);
+		$query = $this->EE->db->query($query_string);
+		$results = $query->result_array();
+		
+		//insert the pair, along with 301 option into exp_detours
+		//die("results count is ".count($results));
+		foreach($results as $row) {
+			$new_url = $blog_path.$row['url_title'];
+			$old_url_segments = parse_url($row['legacy_url']);
+			$domainless_legacy_url = $old_url_segments['path'];
+			$domainless_legacy_url = ltrim($domainless_legacy_url, "/");
+			$domainless_legacy_url = rtrim($domainless_legacy_url, "/");
+			$data = array('original_url' => $domainless_legacy_url, 'new_url' => $new_url, 'detour_method' => 301, 'site_id' => 1);
+			$sql = $this->EE->db->insert_string('exp_detours', $data);
+			$sql = $this->EE->db->query($sql);
+			array_push($vars['inserted_blog_redirects'], $data);
+		}
+		
+		//die("<pre>".print_r($vars['inserted_blog_redirects'],true)."</pre>");
+		return $this->EE->load->view('redirections-results.php', $vars, TRUE);
+	}
+	
+	public function redirectPages() {
+			
+		$this->EE->view->cp_page_title = '301 Redirect Pages';
+		$this->EE->cp->set_breadcrumb($this->_base_url, "Legacy");
+		
+		
+	}
+	
+	public function populate301Redirects() {
+		
+		$this->EE->load->library('table');
+
+		$this->EE->view->cp_page_title = lang('populate_301_redirects');
 		
 		//figure out how to display breadcrumbs
 		$this->EE->cp->set_breadcrumb($this->_base_url, "Legacy");
 		
 		$vars['_base_url'] = $this->_base_url;
 				
-		return $this->EE->load->view('tags.php', $vars, TRUE);
+		return $this->EE->load->view('redirections-view.php', $vars, TRUE);
+				
+	}
+
+	public function populateTaggerFields() {
+				
+		$this->EE->view->cp_page_title = lang('populate_tagger_fields');
+		
+		//figure out how to display breadcrumbs
+		$this->EE->cp->set_breadcrumb($this->_base_url, "Legacy");
+		
+		$vars['_base_url'] = $this->_base_url;
+				
+		return $this->EE->load->view('tags-view.php', $vars, TRUE);
 	}
 	
 	public function queryTags() {

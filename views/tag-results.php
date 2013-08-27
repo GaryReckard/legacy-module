@@ -1,13 +1,9 @@
-<?
-echo "<p>Inserted ".count($distinct_tags)." distinct tags for ".count($raw_tags)." blog entries.</p>";
-?>
-<p>Distinct Tag Array:</p>
-<?
+<p>Inserted <?=count($distinct_tags)?> distinct tags for <?=count($raw_tags)?> blog entries.</p>
 
-echo "<pre>".print_r($distinct_tags,true)."</pre>";
+<p><?=lang('tag_array_label')?></p>
 
-?>
-<p>By blog entry id:</p>
-<?
+<pre><?=print_r($distinct_tags,true)?></pre>
 
-echo "<pre>".print_r($raw_tags,true)."</pre>";
+<p><?=lang('blog_entries_label')?></p>
+
+<pre><?=print_r($raw_tags,true)?></pre>
