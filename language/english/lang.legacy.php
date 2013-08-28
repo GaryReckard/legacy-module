@@ -34,6 +34,11 @@ $lang = array(
 	
 	'populate_page_redirects' => 'Populate Page Redirects',
 	
+	'inserted_redirects_label' => 'Inserted the following:',
+	
+	'updated_redirects_label' => 'Updated the following:',
+
+	
 );
 
 /* End of file lang.legacy.php */

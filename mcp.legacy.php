@@ -100,6 +100,7 @@ class Legacy_mcp {
 			if ($entry['channel_id'] == 1) {
 				$type = "page";
 				$text = $entry['field_id_1'];
+				$url = $this->EE->functions->fetch_site_index().QUERY_MARKER.'URL='.urlencode($this->EE->functions->create_url($entry['url_title']));
 			} else if ($entry['channel_id'] == 3) {
 				$type = "blog";
 				$text = $entry['field_id_13'];
@@ -131,6 +132,18 @@ class Legacy_mcp {
 		$blog_legacy_url = 'field_id_17';
 		$blog_path = 'blog/entry/';
 		$vars['inserted_blog_redirects'] = array();
+		$vars['updated_blog_redirects'] = array();
+		$legacy_url_map = array();
+		
+		//get a map of existing legacy_urls and their id
+		$query_string = "SELECT detour_id, original_url FROM exp_detours";
+		//die($query_string);
+		$query = $this->EE->db->query($query_string);
+		$legacy_entries = $query->result_array();	
+		foreach ($legacy_entries as $legacy_entry) {
+			$legacy_url_map[$legacy_entry['original_url']] = $legacy_entry['detour_id'];
+		}
+		///die("<pre>".print_r($legacy_url_map,true)."</pre>");
 		
 		//get url-title and legacy-url from all blogs
 		$query_string = "SELECT $blog_legacy_url as legacy_url, url_title, ct.channel_id FROM exp_channel_data cd, exp_channel_titles ct
@@ -147,13 +160,27 @@ class Legacy_mcp {
 			$domainless_legacy_url = $old_url_segments['path'];
 			$domainless_legacy_url = ltrim($domainless_legacy_url, "/");
 			$domainless_legacy_url = rtrim($domainless_legacy_url, "/");
-			$data = array('original_url' => $domainless_legacy_url, 'new_url' => $new_url, 'detour_method' => 301, 'site_id' => 1);
-			$sql = $this->EE->db->insert_string('exp_detours', $data);
-			$sql = $this->EE->db->query($sql);
-			array_push($vars['inserted_blog_redirects'], $data);
+			
+			//strip all the stuff after a % legacy, replace with one % b/c detour uses this as a wildcard
+			$arr = explode("%",$domainless_legacy_url);
+			$domainless_legacy_url = $arr[0]."%";
+			
+			//if the legacy url is already in there, update the entry
+			if (array_key_exists($domainless_legacy_url, $legacy_url_map)) {
+				$data = array('new_url' => $new_url, 'detour_method' => 301, 'site_id' => 1);				
+				$this->EE->db->where('original_url', $legacy_url_map[$domainless_legacy_url]);
+				$this->EE->db->update('exp_detours', $data); 
+				array_push($vars['updated_blog_redirects'], $data);
+			}
+			//else insert as new
+			else {
+				$data = array('original_url' => $domainless_legacy_url, 'new_url' => $new_url, 'detour_method' => 301, 'site_id' => 1);
+				$sql = $this->EE->db->insert_string('exp_detours', $data);
+				$sql = $this->EE->db->query($sql);
+				array_push($vars['inserted_blog_redirects'], $data);				
+			}
 		}
 		
-		//die("<pre>".print_r($vars['inserted_blog_redirects'],true)."</pre>");
 		return $this->EE->load->view('redirections-results.php', $vars, TRUE);
 	}
 	
@@ -197,6 +224,7 @@ class Legacy_mcp {
 		$raw_tags = array();
 		$distinct_tags = array();
 		$tag_map = array();
+		$existing_tag_map = array();
 
 		$this->EE->view->cp_page_title = 'Populate Tags';
 		
@@ -205,7 +233,15 @@ class Legacy_mcp {
 		
 		$vars['_base_url'] = $this->_base_url;
 		
-		//get all raw tags
+		//get a map of existing legacy_urls and their id
+		$query_string = "SELECT tag_id, tag_name FROM exp_tagger";
+		$query = $this->EE->db->query($query_string);
+		$existing_tags = $query->result_array();	
+		foreach ($existing_tags as $existing_tag) {
+			$existing_tag_map[$existing_tag['tag_name']] = $existing_tag['tag_id'];
+		}
+		
+		//get all raw tags for comma-separated text field
 		$query_string = "SELECT entry_id, field_id_16 FROM exp_channel_data WHERE channel_id = 3 AND  field_id_16 <> ''";
 		$query = $this->EE->db->query($query_string);
 		$results = $query->result_array();
@@ -225,20 +261,27 @@ class Legacy_mcp {
 			}
 			
 		}		
-		//echo "<pre>".print_r($raw_tags,true)."</pre>";
 		$now = time();
 
-		//insert distinct tags into exp_tagger table and save map of tag_name to tag_id
+		//insert distinct tags into exp_tagger table if not already there, then save map of tag_name to tag_id
 		foreach ($distinct_tags as $tag) {
-			$data = array('tag_name' => $tag, 'entry_date' => $now, 'edit_date' => $now);
-			$sql = $this->EE->db->insert_string('exp_tagger', $data);
-			$sql = $this->EE->db->query($sql);
-			$last_id = $entry_id = $this->EE->db->insert_id();
-			$tag_map[$tag] = $last_id;
+			
+			if (array_key_exists($tag, $existing_tag_map)) {
+				$tag_map[$tag] = $existing_tag_map[$tag];
+			}
+			else {
+				$data = array('tag_name' => $tag, 'entry_date' => $now, 'edit_date' => $now);
+				$sql = $this->EE->db->insert_string('exp_tagger', $data);
+				$sql = $this->EE->db->query($sql);
+				$last_id = $entry_id = $this->EE->db->insert_id();
+				$tag_map[$tag] = $last_id;				
+			}
 		}
-		//echo "<pre>".print_r($tag_map,true)."</pre>";
 		
-		//go through each blog entry
+		//truncate links table
+		$this->EE->db->truncate('exp_tagger_links');
+		
+		//go through each blog entry, populate/re-populate exp_tagger_links
 		foreach ($raw_tags as $key => $tags) {
 			
 			$tag_counter = 0;
