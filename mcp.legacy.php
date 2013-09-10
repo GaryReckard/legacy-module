@@ -179,27 +179,24 @@ class Legacy_mcp {
 			$domainless_legacy_url = ltrim($domainless_legacy_url, "/");
 			$domainless_legacy_url = rtrim($domainless_legacy_url, "/");
 			
-			//strip all the stuff after a % legacy, replace with one % b/c detour uses this as a wildcard
+			//strip all the stuff after a % legacy, replace with one '/' if page. if blog replace with one new % 
 			$arr = explode("%",$domainless_legacy_url);
 			$legacy_url_no_wildcard = $arr[0];
-			$domainless_legacy_url = $arr[0]."%";
 			
 			//if it's a blog
 			if ($row['channel_id'] == 3) {			
 				$path = 'blog/entry/';
 				$new_url = $path.$row['url_title'];			
+				$domainless_legacy_url = $arr[0]."%";
 			}
 			
 			//else if it's a page
 			elseif ($row['channel_id'] == 1) {
-				//echo "entry_id is ".$row['entry_id']."<br>";
 				$page_map = $this->getPageMap();
 				$entry_id = $row['entry_id'];
-				//print_r($page_map);
-				//die($page_map($row['entry_id']));
 				$new_url = $page_map[$entry_id];
 				$new_url = ltrim($new_url, "/");
-				//die($new_url);
+				$domainless_legacy_url = $arr[0]."/";
 			}
 			
 			else {
