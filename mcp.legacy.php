@@ -234,7 +234,7 @@ class Legacy_mcp {
 		return $vars;	
 	}
 
-  //takes array of old_urls and new_urls, then populate exp_detour table
+	//takes array of old_urls and new_urls, then populate exp_detour table
 	public function redirectCsvHelper($arr) {
 		
 		$this->EE->view->cp_page_title = '301 Redirect Pages from Csv';
@@ -250,9 +250,9 @@ class Legacy_mcp {
 		//insert the pair, along with 301 option into exp_detours
 		foreach($arr as $row) {
 			
-      $old_url = $row['old_url'];
-      $new_url = $row['new_url'];
-      //echo $old_url." -> ".$new_url."<br>";
+			$old_url = $row['old_url'];
+			$new_url = $row['new_url'];
+			//echo $old_url." -> ".$new_url."<br>";
 
 			//special case: urls are same which causes infinte redirect loop, don't insert if they're the same!
 			if ($old_url == $new_url) {
@@ -275,7 +275,7 @@ class Legacy_mcp {
 			}
 			//else insert as new
 			else {
-        //"inserting new row<br>";
+				//"inserting new row<br>";
 				$data = array('original_url' => $old_url, 'new_url' => $new_url, 'detour_method' => 301, 'site_id' => 1);
 				$sql = $this->EE->db->insert_string('exp_detours', $data);
 				$sql = $this->EE->db->query($sql);
@@ -287,44 +287,44 @@ class Legacy_mcp {
 		return $vars;	
 	}
 
-  //takes a csv where first column is old_url, 2nd is new_url and inserts in exp_detour table for redirects
-  public function redirectPagesCsv() {
+	//takes a csv where first column is old_url, 2nd is new_url and inserts in exp_detour table for redirects
+	public function redirectPagesCsv() {
 
 		$page_channel_id = 1;
 
-    //an array of old_urls as keys mapped to new_site_url
-    $arr = array();
+		//an array of old_urls as keys mapped to new_site_url
+		$arr = array();
 
-    $host = $_SERVER['HTTP_HOST'];
-    $file = fopen('http://'.$host.'/user-content/mahec_301_redirects.csv','r');
-    
-    //go through each row
-    while (($row = fgetcsv($file)) !== FALSE) {
+		$host = $_SERVER['HTTP_HOST'];
+		$file = fopen('http://'.$host.'/user-content/mahec_301_redirects.csv','r');
+		
+		//go through each row
+		while (($row = fgetcsv($file)) !== FALSE) {
 
-      //create temp array
-      $temp = array();
+			//create temp array
+			$temp = array();
 
-      //get urls
-      $old_url = $this->stripIt($row[0]);
-      $new_url = $this->stripIt($row[1]);
+			//get urls
+			$old_url = $this->stripIt($row[0]);
+			$new_url = $this->stripIt($row[1]);
 
-      //regex matches any whitespace in string
-      $old_url_has_wp = preg_match('/\s/',$old_url);
-      $new_url_has_wp = preg_match('/\s/',$new_url);
+			//regex matches any whitespace in string
+			$old_url_has_wp = preg_match('/\s/',$old_url);
+			$new_url_has_wp = preg_match('/\s/',$new_url);
 
-      //we only want rows that have both urls and no strings like "Back End Page"
-      if ($old_url != '' && $new_url != '' && !($old_url_has_wp) && !($new_url_has_wp)) {
+			//we only want rows that have both urls and no strings like "Back End Page"
+			if ($old_url != '' && $new_url != '' && !($old_url_has_wp) && !($new_url_has_wp)) {
 
-        $temp['old_url'] = $old_url;
-        $temp['new_url'] = $new_url;
-        array_push($arr, $temp);
+				$temp['old_url'] = $old_url;
+				$temp['new_url'] = $new_url;
+				array_push($arr, $temp);
 
-      }
-    }
+			}
+		}
 		//die("<pre>".print_r($arr,true)."</pre>");
-    fclose($file);
+		fclose($file);
 
-    $this->EE->view->cp_page_title = '301 Redirect Pages From CSV';
+		$this->EE->view->cp_page_title = '301 Redirect Pages From CSV';
 		$this->EE->cp->set_breadcrumb($this->_base_url, "Legacy");
 		
 		$vars = $this->redirectCsvHelper($arr);
@@ -332,19 +332,19 @@ class Legacy_mcp {
 		return $this->EE->load->view('redirections-results.php', $vars, TRUE);	
 		
 
-  }
-  
-  //removes domain and leading/trailing /'s
-  function stripIt($url) {
+	}
+	
+	//removes domain and leading/trailing /'s
+	function stripIt($url) {
 
-    $old_url_segments = parse_url($url);
-    $new_url = $old_url_segments['path'];
-    $new_url = ltrim($new_url, "/");
-    $new_url = rtrim($new_url, "/");
+		$old_url_segments = parse_url($url);
+		$new_url = $old_url_segments['path'];
+		$new_url = ltrim($new_url, "/");
+		$new_url = rtrim($new_url, "/");
 
-    return $new_url;
+		return $new_url;
 
-    }
+		}
 
 	public function redirectBlogs() {
 
