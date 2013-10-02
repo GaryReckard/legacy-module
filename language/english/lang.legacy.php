@@ -38,7 +38,7 @@ $lang = array(
 	
 	'updated_redirects_label' => 'Updated the following:',
 
-	
+	'redirect_pages_csv' => 'Update Pages from Csv',
 );
 
 /* End of file lang.legacy.php */

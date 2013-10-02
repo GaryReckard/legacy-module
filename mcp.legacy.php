@@ -234,6 +234,118 @@ class Legacy_mcp {
 		return $vars;	
 	}
 
+  //takes array of old_urls and new_urls, then populate exp_detour table
+	public function redirectCsvHelper($arr) {
+		
+		$this->EE->view->cp_page_title = '301 Redirect Pages from Csv';
+		$this->EE->cp->set_breadcrumb($this->_base_url, "Legacy");		
+	
+		$vars['inserted_redirects'] = array();
+		$vars['updated_redirects'] = array();
+		
+		$map_query_string = "SELECT detour_id, original_url FROM exp_detours";	
+		$legacy_map = $this->getLegacyMap($map_query_string);
+		//die("<pre>".print_r($legacy_map,true)."</pre>");
+		
+		//insert the pair, along with 301 option into exp_detours
+		foreach($arr as $row) {
+			
+      $old_url = $row['old_url'];
+      $new_url = $row['new_url'];
+      //echo $old_url." -> ".$new_url."<br>";
+
+			//special case: urls are same which causes infinte redirect loop, don't insert if they're the same!
+			if ($old_url == $new_url) {
+				
+				//remove orignal url redirect if exists
+				$this->EE->db->delete('exp_detours', array('original_url'=>$old_url));
+				echo "removed entry";
+				//break out of loop...
+				continue;
+			}
+			
+			//if the legacy url is already in there, update the entry
+			if (array_key_exists($old_url, $legacy_map)) {
+				
+				$detour_id = $legacy_map[$old_url];
+				$data = array('original_url' => $old_url, 'new_url' => $new_url, 'detour_method' => 301, 'site_id' => 1);			
+				$this->EE->db->where('detour_id', $detour_id);
+				$this->EE->db->update('exp_detours', $data);
+				array_push($vars['updated_redirects'], $data);
+			}
+			//else insert as new
+			else {
+        //"inserting new row<br>";
+				$data = array('original_url' => $old_url, 'new_url' => $new_url, 'detour_method' => 301, 'site_id' => 1);
+				$sql = $this->EE->db->insert_string('exp_detours', $data);
+				$sql = $this->EE->db->query($sql);
+				array_push($vars['inserted_redirects'], $data);	
+			}
+		}
+		
+		//die("<pre>".print_r($vars,true)."</pre>");
+		return $vars;	
+	}
+
+  //takes a csv where first column is old_url, 2nd is new_url and inserts in exp_detour table for redirects
+  public function redirectPagesCsv() {
+
+		$page_channel_id = 1;
+
+    //an array of old_urls as keys mapped to new_site_url
+    $arr = array();
+
+    $host = $_SERVER['HTTP_HOST'];
+    $file = fopen('http://'.$host.'/user-content/mahec_301_redirects.csv','r');
+    
+    //go through each row
+    while (($row = fgetcsv($file)) !== FALSE) {
+
+      //create temp array
+      $temp = array();
+
+      //get urls
+      $old_url = $this->stripIt($row[0]);
+      $new_url = $this->stripIt($row[1]);
+
+      //regex matches any whitespace in string
+      $old_url_has_wp = preg_match('/\s/',$old_url);
+      $new_url_has_wp = preg_match('/\s/',$new_url);
+
+      //we only want rows that have both urls and no strings like "Back End Page"
+      if ($old_url != '' && $new_url != '' && !($old_url_has_wp) && !($new_url_has_wp)) {
+
+        $temp['old_url'] = $old_url;
+        $temp['new_url'] = $new_url;
+        array_push($arr, $temp);
+
+      }
+    }
+		//die("<pre>".print_r($arr,true)."</pre>");
+    fclose($file);
+
+    $this->EE->view->cp_page_title = '301 Redirect Pages From CSV';
+		$this->EE->cp->set_breadcrumb($this->_base_url, "Legacy");
+		
+		$vars = $this->redirectCsvHelper($arr);
+		
+		return $this->EE->load->view('redirections-results.php', $vars, TRUE);	
+		
+
+  }
+  
+  //removes domain and leading/trailing /'s
+  function stripIt($url) {
+
+    $old_url_segments = parse_url($url);
+    $new_url = $old_url_segments['path'];
+    $new_url = ltrim($new_url, "/");
+    $new_url = rtrim($new_url, "/");
+
+    return $new_url;
+
+    }
+
 	public function redirectBlogs() {
 
 		$blog_channel_id = 3;
@@ -267,6 +379,7 @@ class Legacy_mcp {
 		$this->EE->view->cp_page_title = '301 Redirect Pages';
 		$this->EE->cp->set_breadcrumb($this->_base_url, "Legacy");
 		
+		//die("<pre>".print_r($results,true)."</pre>");
 		$vars = $this->redirectHelper($results, $page_channel_id, $page_legacy_url);
 		
 		return $this->EE->load->view('redirections-results.php', $vars, TRUE);	
